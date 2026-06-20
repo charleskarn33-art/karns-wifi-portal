@@ -9,6 +9,7 @@ import {
   CreditCard,
   Ticket,
   BarChart2,
+  MessageSquare,
   LogOut,
   Menu,
   X,
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/vouchers", label: "Vouchers", icon: Ticket },
   { href: "/admin/reports", label: "Reports", icon: BarChart2 },
+  { href: "/admin/sms-logs", label: "SMS Logs", icon: MessageSquare },
 ];
 
 export function AdminNav({ admin }: { admin: Admin }) {

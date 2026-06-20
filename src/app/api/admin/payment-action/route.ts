@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendSms } from "@/lib/orange-sms";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,10 +24,9 @@ export async function POST(req: NextRequest) {
     const adminSupabase = await createAdminClient();
 
     if (action === "approve") {
-      // Get payment — include customer_phone for voucher tracking
       const { data: rawPayment, error: paymentErr } = await adminSupabase
         .from("payments")
-        .select("package_id, amount, customer_phone, status")
+        .select("package_id, amount, customer_phone, customer_name, status")
         .eq("id", paymentId)
         .single();
 
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
         package_id: string;
         amount: number;
         customer_phone: string;
+        customer_name: string;
         status: string;
       } | null;
 
@@ -42,10 +43,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (payment.status !== "pending") {
-        return NextResponse.json(
-          { error: "Payment has already been processed." },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: "Payment has already been processed." }, { status: 409 });
       }
 
       // Find a candidate available voucher
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
 
       const now = new Date().toISOString();
 
-      // Atomically claim the voucher — only succeeds if still unassigned
+      // Atomically claim the voucher
       const { data: claimed, error: claimErr } = await adminSupabase
         .from("vouchers")
         .update({
@@ -80,13 +78,12 @@ export async function POST(req: NextRequest) {
           assigned_to_phone: payment.customer_phone,
         })
         .eq("id", candidate.id)
-        .eq("is_used", false)   // guard: only claim if still free
-        .is("payment_id", null) // double-guard
+        .eq("is_used", false)
+        .is("payment_id", null)
         .select("id, code")
         .single();
 
       if (claimErr || !claimed) {
-        // Race condition — another request grabbed it first
         return NextResponse.json(
           { error: "Voucher was just assigned to another payment. Please try again." },
           { status: 409 }
@@ -106,8 +103,8 @@ export async function POST(req: NextRequest) {
         .eq("id", paymentId);
 
       if (updateErr) {
-        console.error("payment-action: failed to update payment after voucher claim:", updateErr);
-        // Voucher already claimed but payment update failed — roll back voucher
+        console.error("payment-action: failed to update payment:", updateErr);
+        // Roll back voucher claim
         await adminSupabase
           .from("vouchers")
           .update({ is_used: false, payment_id: null, used_at: null, assigned_at: null, assigned_to_phone: null })
@@ -115,7 +112,44 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to update payment status." }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, voucherCode: voucher.code });
+      // Send SMS with voucher code
+      const smsMessage =
+        `Hello ${payment.customer_name}! Your Karn's WiFi voucher is ready.\n\n` +
+        `Code: ${voucher.code}\n\n` +
+        `Connect to Karn's WiFi and enter this code at the login page to get online.`;
+
+      const smsResult = await sendSms(payment.customer_phone, smsMessage);
+
+      // Store SMS result on payment
+      await adminSupabase
+        .from("payments")
+        .update({
+          sms_status: smsResult.ok ? "sent" : "failed",
+          sms_message_id: smsResult.ok ? smsResult.messageId : null,
+          sms_sent_at: smsResult.ok ? new Date().toISOString() : null,
+          sms_error: smsResult.ok ? null : smsResult.error,
+        })
+        .eq("id", paymentId);
+
+      // Write to sms_logs
+      await adminSupabase.from("sms_logs").insert({
+        payment_id: paymentId,
+        phone: payment.customer_phone,
+        message: smsMessage,
+        status: smsResult.ok ? "sent" : "failed",
+        message_id: smsResult.ok ? smsResult.messageId : null,
+        error: smsResult.ok ? null : smsResult.error,
+      });
+
+      console.log(`[payment-action] SMS for payment ${paymentId}:`, smsResult);
+
+      return NextResponse.json({
+        success: true,
+        voucherCode: voucher.code,
+        sms: smsResult.ok
+          ? { sent: true, messageId: smsResult.messageId }
+          : { sent: false, error: smsResult.error },
+      });
     } else {
       // Reject
       await adminSupabase

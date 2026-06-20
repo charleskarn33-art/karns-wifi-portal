@@ -3,10 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CheckCircle, XCircle, Clock, Search, Loader2, Eye, Copy, MessageCircle, Wifi,
+  CheckCircle, XCircle, Clock, Search, Loader2, Eye,
+  Copy, MessageCircle, Wifi, MessageSquare, RefreshCw,
 } from "lucide-react";
-
-const OMADA_PORTAL_URL = "https://euw1-omada-essential-controller.tplinkcloud.com/";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
+const OMADA_PORTAL_URL = "https://euw1-omada-essential-controller.tplinkcloud.com/";
+
 type PaymentRow = {
   id: string;
   customer_name: string;
@@ -32,6 +33,8 @@ type PaymentRow = {
   admin_notes: string | null;
   created_at: string;
   voucher_id: string | null;
+  sms_status: string | null;
+  sms_sent_at: string | null;
   packages: { name: string; duration_hours: number } | null;
   vouchers: { code: string } | null;
 };
@@ -49,7 +52,6 @@ const STATUS_FILTERS = [
 ];
 
 function buildWhatsAppUrl(phone: string, customerName: string, packageName: string, voucherCode: string) {
-  // Normalise to international format: strip non-digits, if starts with 0 replace with 231 (Liberia)
   const digits = phone.replace(/\D/g, "");
   const intl = digits.startsWith("0") ? "231" + digits.slice(1) : digits;
   const message = encodeURIComponent(
@@ -68,11 +70,12 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
   const [notes, setNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
-  // After approval: store voucher result here to show the success dialog
   const [approvedResult, setApprovedResult] = useState<{
     payment: PaymentRow;
     voucherCode: string;
+    smsSent: boolean;
   } | null>(null);
 
   const { toast } = useToast();
@@ -112,8 +115,11 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
       if (!res.ok) throw new Error(data.error ?? "Action failed");
 
       if (actionType === "approve" && data.voucherCode) {
-        // Show voucher result dialog instead of plain toast
-        setApprovedResult({ payment: selectedPayment, voucherCode: data.voucherCode });
+        setApprovedResult({
+          payment: selectedPayment,
+          voucherCode: data.voucherCode,
+          smsSent: data.sms?.sent ?? false,
+        });
       } else {
         toast({ title: "Payment rejected", variant: "default" });
       }
@@ -129,6 +135,29 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
       });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleResendSms = async (paymentId: string) => {
+    setResendingId(paymentId);
+    try {
+      const res = await fetch("/api/admin/resend-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Resend failed");
+      toast({ title: "SMS sent successfully", variant: "success" as "default" });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      toast({
+        title: "SMS failed",
+        description: err instanceof Error ? err.message : "Could not send SMS",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -187,6 +216,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Transaction ID</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600">SMS</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-600">Actions</th>
                 </tr>
@@ -222,6 +252,35 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                         {payment.status === "pending" && <Clock className="w-3 h-3 mr-1" />}
                         {payment.status}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {payment.status === "approved" ? (
+                        <div className="flex flex-col items-center gap-1">
+                          {payment.sms_status === "sent" ? (
+                            <Badge variant="success" className="text-xs">
+                              <MessageSquare className="w-3 h-3 mr-1" />sent
+                            </Badge>
+                          ) : payment.sms_status === "failed" ? (
+                            <Badge variant="destructive" className="text-xs">
+                              <XCircle className="w-3 h-3 mr-1" />failed
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                          <button
+                            title="Resend SMS"
+                            disabled={resendingId === payment.id}
+                            onClick={() => handleResendSms(payment.id)}
+                            className="text-gray-400 hover:text-blue-600 disabled:opacity-40"
+                          >
+                            {resendingId === payment.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <RefreshCw className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-200 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {new Date(payment.created_at).toLocaleDateString()}
@@ -281,7 +340,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
               </DialogTitle>
               <DialogDescription>
                 {actionType === "approve"
-                  ? "A voucher will be assigned automatically and shown to you."
+                  ? "A voucher will be assigned and an SMS sent to the customer."
                   : "The payment will be marked as rejected."}
               </DialogDescription>
             </DialogHeader>
@@ -351,11 +410,26 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 Voucher Assigned!
               </DialogTitle>
               <DialogDescription>
-                Share this code with {approvedResult.payment.customer_name}.
+                {approvedResult.smsSent
+                  ? `SMS sent to ${approvedResult.payment.customer_phone}.`
+                  : `SMS could not be sent — share the code manually.`}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* SMS status banner */}
+              {approvedResult.smsSent ? (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+                  <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                  SMS delivered to customer
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm text-yellow-700">
+                  <XCircle className="w-4 h-4 flex-shrink-0" />
+                  SMS failed — share code via WhatsApp or manually
+                </div>
+              )}
+
               {/* Voucher code display */}
               <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
                 <p className="text-xs text-green-600 font-medium mb-2 uppercase tracking-wider">Voucher Code</p>
@@ -411,11 +485,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 </a>
               </div>
 
-              <a
-                href={OMADA_PORTAL_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={OMADA_PORTAL_URL} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" className="w-full gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
                   <Wifi className="w-4 h-4" />
                   Go to WiFi Login
@@ -451,6 +521,10 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 ["Status", selectedPayment.status],
                 ["Date", new Date(selectedPayment.created_at).toLocaleString()],
                 ...(selectedPayment.admin_notes ? [["Admin Notes", selectedPayment.admin_notes]] : []),
+                ...(selectedPayment.sms_status ? [["SMS Status", selectedPayment.sms_status]] : []),
+                ...(selectedPayment.sms_sent_at
+                  ? [["SMS Sent At", new Date(selectedPayment.sms_sent_at).toLocaleString()]]
+                  : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between py-1.5 border-b border-gray-100">
                   <span className="text-gray-500">{label}</span>
@@ -458,7 +532,6 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 </div>
               ))}
 
-              {/* Voucher code — shown prominently for approved payments */}
               {selectedPayment.status === "approved" && selectedPayment.vouchers?.code && (
                 <div className="pt-2">
                   <p className="text-xs text-gray-500 mb-1">Voucher Code</p>
@@ -474,6 +547,17 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                     </button>
                   </div>
                   <div className="flex flex-col gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      disabled={resendingId === selectedPayment.id}
+                      onClick={() => handleResendSms(selectedPayment.id)}
+                    >
+                      {resendingId === selectedPayment.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <MessageSquare className="w-4 h-4" />}
+                      Resend SMS
+                    </Button>
                     <a
                       href={buildWhatsAppUrl(
                         selectedPayment.customer_phone,

@@ -11,7 +11,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from("payments")
-    .select("*, packages(name, duration_hours), vouchers(code)")
+    .select("*, packages(name, duration_hours), vouchers(code), sms_status, sms_sent_at")
     .order("created_at", { ascending: false });
 
   if (status && ["pending", "approved", "rejected"].includes(status)) {
