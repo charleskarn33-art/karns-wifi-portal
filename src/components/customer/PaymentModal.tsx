@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { createClient } from "@/lib/supabase/client";
 import type { Package } from "@/types/database";
 
 const MOBILE_MONEY_NUMBER = process.env.NEXT_PUBLIC_MOBILE_MONEY_NUMBER ?? "0XX-XXX-XXXX";
@@ -35,7 +34,6 @@ export function PaymentModal({ pkg, onClose }: PaymentModalProps) {
     transactionId: "",
   });
   const { toast } = useToast();
-  const supabase = createClient();
 
   const copyNumber = async () => {
     await navigator.clipboard.writeText(MOBILE_MONEY_NUMBER);
@@ -51,22 +49,31 @@ export function PaymentModal({ pkg, onClose }: PaymentModalProps) {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.from("payments").insert({
-        package_id: pkg.id,
-        customer_name: form.customerName.trim(),
-        customer_phone: form.customerPhone.trim(),
-        transaction_id: form.transactionId.trim().toUpperCase(),
-        amount: Number(pkg.price),
-        status: "pending",
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          package_id: pkg.id,
+          customer_name: form.customerName.trim(),
+          customer_phone: form.customerPhone.trim(),
+          transaction_id: form.transactionId.trim().toUpperCase(),
+          amount: Number(pkg.price),
+        }),
       });
 
-      if (error) throw error;
+      const json = await res.json();
+      console.log("[PaymentModal] /api/payments response:", res.status, json);
+
+      if (!res.ok) {
+        throw new Error(json.error ?? "Payment submission failed");
+      }
+
       setStep("success");
     } catch (err) {
-      console.error(err);
+      console.error("[PaymentModal] submit error:", err);
       toast({
         title: "Submission failed",
-        description: "Please try again or contact support.",
+        description: err instanceof Error ? err.message : "Please try again or contact support.",
         variant: "destructive",
       });
     } finally {
