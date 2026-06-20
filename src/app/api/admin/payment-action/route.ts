@@ -8,8 +8,11 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Verify admin
-    const { data: admin } = await supabase.from("admins").select("id").eq("user_id", user.id).single();
+    const { data: admin } = await supabase
+      .from("admins")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { paymentId, action, notes } = await req.json();
@@ -20,45 +23,80 @@ export async function POST(req: NextRequest) {
     const adminSupabase = await createAdminClient();
 
     if (action === "approve") {
-      // Get payment to find package
+      // Get payment — include customer_phone for voucher tracking
       const { data: rawPayment, error: paymentErr } = await adminSupabase
         .from("payments")
-        .select("package_id, amount")
+        .select("package_id, amount, customer_phone, status")
         .eq("id", paymentId)
         .single();
 
-      const payment = rawPayment as { package_id: string; amount: number } | null;
+      const payment = rawPayment as {
+        package_id: string;
+        amount: number;
+        customer_phone: string;
+        status: string;
+      } | null;
 
       if (paymentErr || !payment) {
         return NextResponse.json({ error: "Payment not found" }, { status: 404 });
       }
 
-      // Find an available voucher for this package
+      if (payment.status !== "pending") {
+        return NextResponse.json(
+          { error: "Payment has already been processed." },
+          { status: 409 }
+        );
+      }
+
+      // Find a candidate available voucher
       const { data: rawVoucher, error: voucherErr } = await adminSupabase
         .from("vouchers")
         .select("id, code")
         .eq("package_id", payment.package_id)
         .eq("is_used", false)
+        .is("payment_id", null)
         .limit(1)
         .single();
 
-      const voucher = rawVoucher as { id: string; code: string } | null;
+      const candidate = rawVoucher as { id: string; code: string } | null;
 
-      if (voucherErr || !voucher) {
+      if (voucherErr || !candidate) {
         return NextResponse.json(
           { error: "No available vouchers for this package. Please add more vouchers." },
           { status: 422 }
         );
       }
 
-      // Mark voucher as used
-      await adminSupabase
-        .from("vouchers")
-        .update({ is_used: true, payment_id: paymentId, used_at: new Date().toISOString() })
-        .eq("id", voucher.id);
+      const now = new Date().toISOString();
 
-      // Update payment status
-      await adminSupabase
+      // Atomically claim the voucher — only succeeds if still unassigned
+      const { data: claimed, error: claimErr } = await adminSupabase
+        .from("vouchers")
+        .update({
+          is_used: true,
+          payment_id: paymentId,
+          used_at: now,
+          assigned_at: now,
+          assigned_to_phone: payment.customer_phone,
+        })
+        .eq("id", candidate.id)
+        .eq("is_used", false)   // guard: only claim if still free
+        .is("payment_id", null) // double-guard
+        .select("id, code")
+        .single();
+
+      if (claimErr || !claimed) {
+        // Race condition — another request grabbed it first
+        return NextResponse.json(
+          { error: "Voucher was just assigned to another payment. Please try again." },
+          { status: 409 }
+        );
+      }
+
+      const voucher = claimed as { id: string; code: string };
+
+      // Update payment to approved
+      const { error: updateErr } = await adminSupabase
         .from("payments")
         .update({
           status: "approved",
@@ -66,6 +104,16 @@ export async function POST(req: NextRequest) {
           admin_notes: notes || null,
         })
         .eq("id", paymentId);
+
+      if (updateErr) {
+        console.error("payment-action: failed to update payment after voucher claim:", updateErr);
+        // Voucher already claimed but payment update failed — roll back voucher
+        await adminSupabase
+          .from("vouchers")
+          .update({ is_used: false, payment_id: null, used_at: null, assigned_at: null, assigned_to_phone: null })
+          .eq("id", voucher.id);
+        return NextResponse.json({ error: "Failed to update payment status." }, { status: 500 });
+      }
 
       return NextResponse.json({ success: true, voucherCode: voucher.code });
     } else {
