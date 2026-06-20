@@ -3,8 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CheckCircle, XCircle, Clock, Search, Loader2, Eye, Copy, MessageCircle,
+  CheckCircle, XCircle, Clock, Search, Loader2, Eye, Copy, MessageCircle, Wifi,
 } from "lucide-react";
+
+const OMADA_PORTAL_URL = "https://euw1-omada-essential-controller.tplinkcloud.com/";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -388,7 +390,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                   {copiedCode ? (
                     <><CheckCircle className="w-4 h-4 text-green-500" /> Copied!</>
                   ) : (
-                    <><Copy className="w-4 h-4" /> Copy Code</>
+                    <><Copy className="w-4 h-4" /> Copy Voucher</>
                   )}
                 </Button>
                 <a
@@ -408,6 +410,17 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                   </Button>
                 </a>
               </div>
+
+              <a
+                href={OMADA_PORTAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" className="w-full gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                  <Wifi className="w-4 h-4" />
+                  Go to WiFi Login
+                </Button>
+              </a>
             </div>
 
             <Button
@@ -460,22 +473,29 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                       {copiedCode ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
-                  <a
-                    href={buildWhatsAppUrl(
-                      selectedPayment.customer_phone,
-                      selectedPayment.customer_name,
-                      selectedPayment.packages?.name ?? "WiFi",
-                      selectedPayment.vouchers.code
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block mt-2"
-                  >
-                    <Button className="w-full gap-2 bg-[#25D366] hover:bg-[#1da851] text-white">
-                      <MessageCircle className="w-4 h-4" />
-                      Resend via WhatsApp
-                    </Button>
-                  </a>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <a
+                      href={buildWhatsAppUrl(
+                        selectedPayment.customer_phone,
+                        selectedPayment.customer_name,
+                        selectedPayment.packages?.name ?? "WiFi",
+                        selectedPayment.vouchers.code
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button className="w-full gap-2 bg-[#25D366] hover:bg-[#1da851] text-white">
+                        <MessageCircle className="w-4 h-4" />
+                        Resend via WhatsApp
+                      </Button>
+                    </a>
+                    <a href={OMADA_PORTAL_URL} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="w-full gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                        <Wifi className="w-4 h-4" />
+                        Go to WiFi Login
+                      </Button>
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
