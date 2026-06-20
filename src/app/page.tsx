@@ -26,7 +26,7 @@ export default async function HomePage() {
             </div>
           </div>
           <a
-            href="tel:+1234567890"
+            href="tel:+2310777770438"
             className="flex items-center gap-1.5 text-sm text-blue-600 font-medium"
           >
             <Phone className="w-4 h-4" />
