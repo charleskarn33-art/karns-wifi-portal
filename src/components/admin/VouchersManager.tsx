@@ -248,7 +248,7 @@ export function VouchersManager({ vouchers, packages }: VouchersManagerProps) {
                 <SelectContent>
                   {packages.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} — GHS {Number(p.price).toFixed(2)}
+                      {p.name} — L$ {Number(p.price).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -82,7 +82,7 @@ export function PaymentModal({ pkg, onClose }: PaymentModalProps) {
             <DialogHeader>
               <DialogTitle>Purchase {pkg.name}</DialogTitle>
               <DialogDescription>
-                Send GHS {Number(pkg.price).toFixed(2)} via Mobile Money, then submit your
+                Send L$ {Number(pkg.price).toFixed(2)} via Mobile Money, then submit your
                 transaction ID.
               </DialogDescription>
             </DialogHeader>
@@ -103,7 +103,7 @@ export function PaymentModal({ pkg, onClose }: PaymentModalProps) {
                   </Button>
                 </div>
                 <p className="text-xs text-blue-600 mt-2">
-                  Amount: <strong>GHS {Number(pkg.price).toFixed(2)}</strong>
+                  Amount: <strong>L$ {Number(pkg.price).toFixed(2)}</strong>
                 </p>
               </div>
 
@@ -192,7 +192,7 @@ export function PaymentModal({ pkg, onClose }: PaymentModalProps) {
                 </div>
                 <div className="flex justify-between mt-1">
                   <span className="text-gray-600">Amount</span>
-                  <span className="font-medium text-blue-600">GHS {Number(pkg.price).toFixed(2)}</span>
+                  <span className="font-medium text-blue-600">L$ {Number(pkg.price).toFixed(2)}</span>
                 </div>
               </div>
 

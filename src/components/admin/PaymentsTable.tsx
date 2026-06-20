@@ -178,7 +178,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                       {payment.transaction_id}
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
-                      GHS {Number(payment.amount).toFixed(2)}
+                      L$ {Number(payment.amount).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge
@@ -272,7 +272,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Amount</span>
                   <span className="font-medium text-blue-600">
-                    GHS {Number(selectedPayment.amount).toFixed(2)}
+                    L$ {Number(selectedPayment.amount).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -323,7 +323,7 @@ export function PaymentsTable({ payments, currentStatus }: PaymentsTableProps) {
                 ["Phone", selectedPayment.customer_phone],
                 ["Package", selectedPayment.packages?.name ?? "—"],
                 ["Transaction ID", selectedPayment.transaction_id],
-                ["Amount", `GHS ${Number(selectedPayment.amount).toFixed(2)}`],
+                ["Amount", `L$ ${Number(selectedPayment.amount).toFixed(2)}`],
                 ["Status", selectedPayment.status],
                 ["Date", new Date(selectedPayment.created_at).toLocaleString()],
                 ...(selectedPayment.admin_notes ? [["Admin Notes", selectedPayment.admin_notes]] : []),

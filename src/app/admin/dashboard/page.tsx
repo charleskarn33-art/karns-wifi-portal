@@ -58,7 +58,7 @@ export default async function DashboardPage() {
     },
     {
       title: "Total Revenue",
-      value: `GHS ${totalRevenue.toFixed(2)}`,
+      value: `L$ ${totalRevenue.toFixed(2)}`,
       icon: TrendingUp,
       color: "text-blue-600",
       bg: "bg-blue-50",
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">GHS {Number(payment.amount).toFixed(2)}</span>
+                      <span className="text-sm font-medium">L$ {Number(payment.amount).toFixed(2)}</span>
                       <Badge
                         variant={
                           payment.status === "approved"

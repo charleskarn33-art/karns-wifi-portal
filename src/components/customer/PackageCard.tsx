@@ -49,7 +49,7 @@ export function PackageCard({ pkg, featured = false }: PackageCardProps) {
           </div>
           <div className="mt-2">
             <span className="text-4xl font-bold text-gray-900">
-              GHS {Number(pkg.price).toFixed(2)}
+              L$ {Number(pkg.price).toFixed(2)}
             </span>
           </div>
           {pkg.description && (
@@ -80,7 +80,7 @@ export function PackageCard({ pkg, featured = false }: PackageCardProps) {
             className={`w-full ${featured ? "bg-blue-600 hover:bg-blue-700" : ""}`}
             onClick={() => setShowModal(true)}
           >
-            Get Started — GHS {Number(pkg.price).toFixed(2)}
+            Get Started — L$ {Number(pkg.price).toFixed(2)}
           </Button>
         </CardFooter>
       </Card>

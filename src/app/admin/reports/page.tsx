@@ -68,7 +68,7 @@ export default async function ReportsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Revenue", value: `GHS ${totalRevenue.toFixed(2)}`, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Total Revenue", value: `L$ ${totalRevenue.toFixed(2)}`, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Approved Sales", value: approved.length, icon: CreditCard, color: "text-green-600", bg: "bg-green-50" },
           { label: "Pending", value: pending.length, icon: Package, color: "text-yellow-600", bg: "bg-yellow-50" },
           { label: "Vouchers Used", value: vouchers.filter((v) => v.is_used).length, icon: Ticket, color: "text-purple-600", bg: "bg-purple-50" },
@@ -103,7 +103,7 @@ export default async function ReportsPage() {
                   <div key={pkg.name}>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="font-medium text-gray-900">{pkg.name}</span>
-                      <span className="text-gray-500">{pkg.count} sales · GHS {pkg.revenue.toFixed(2)}</span>
+                      <span className="text-gray-500">{pkg.count} sales · L$ {pkg.revenue.toFixed(2)}</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
@@ -160,7 +160,7 @@ export default async function ReportsPage() {
             {last7Days.map((day) => (
               <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-xs text-gray-500 font-medium">
-                  {day.revenue > 0 ? `GHS ${day.revenue.toFixed(0)}` : ""}
+                  {day.revenue > 0 ? `L$ ${day.revenue.toFixed(0)}` : ""}
                 </span>
                 <div className="w-full flex items-end justify-center" style={{ height: "80px" }}>
                   <div
@@ -205,7 +205,7 @@ export default async function ReportsPage() {
                         <td className="px-4 py-2.5 font-medium text-gray-900">{p.customer_name}</td>
                         <td className="px-4 py-2.5 text-gray-600">{pkg?.name ?? "—"}</td>
                         <td className="px-4 py-2.5 text-right font-medium text-green-600">
-                          GHS {Number(p.amount).toFixed(2)}
+                          L$ {Number(p.amount).toFixed(2)}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500 text-xs">
                           {new Date(p.created_at).toLocaleDateString()}
